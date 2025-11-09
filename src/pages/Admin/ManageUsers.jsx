@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
-import { usersAPI } from '../../api/api';
-import { getItemId } from '../../utils/helpers';
-import Card from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import Table from '../../components/ui/Table';
-import PageHeader from '../../components/common/PageHeader';
-import LoadingWrapper from '../../components/common/LoadingWrapper';
-import ErrorAlert from '../../components/common/ErrorAlert';
-import StatusBadge from '../../components/common/StatusBadge';
+import { useState, useEffect } from "react";
+import { usersAPI } from "../../api/api";
+import { getItemId } from "../../utils/helpers";
+import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
+import Table from "../../components/ui/Table";
+import PageHeader from "../../components/common/PageHeader";
+import LoadingWrapper from "../../components/common/LoadingWrapper";
+import ErrorAlert from "../../components/common/ErrorAlert";
+import StatusBadge from "../../components/common/StatusBadge";
 
 const ManageUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchUsers();
@@ -24,7 +24,7 @@ const ManageUsers = () => {
       const response = await usersAPI.getAll();
       setUsers(response.data || []);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch users');
+      setError(err.response?.data?.message || "Failed to fetch users");
     } finally {
       setLoading(false);
     }
@@ -34,17 +34,17 @@ const ManageUsers = () => {
    * Handle user deletion with confirmation
    */
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
 
     try {
       await usersAPI.delete(id);
       setUsers(users.filter((u) => getItemId(u) !== id));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete user');
+      alert(err.response?.data?.message || "Failed to delete user");
     }
   };
 
-  const headers = ['Name', 'Email', 'Role', 'Actions'];
+  const headers = ["Name", "Email", "Role", "Actions"];
 
   const renderRow = (user) => {
     const userId = getItemId(user);
@@ -60,7 +60,11 @@ const ManageUsers = () => {
           <StatusBadge status={user.role} />
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm">
-          <Button variant="danger" size="sm" onClick={() => handleDelete(userId)}>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => handleDelete(userId)}
+          >
             Delete
           </Button>
         </td>
@@ -70,13 +74,13 @@ const ManageUsers = () => {
 
   return (
     <LoadingWrapper loading={loading}>
-      <div className="container-custom py-8">
+      <div className="container-custom py-8 pt-20">
         <PageHeader
           title="Manage Users"
           description="View and manage all users in the system"
         />
 
-        <ErrorAlert message={error} onDismiss={() => setError('')} />
+        <ErrorAlert message={error} onDismiss={() => setError("")} />
 
         <Card>
           <Table headers={headers} data={users} renderRow={renderRow} />
@@ -87,4 +91,3 @@ const ManageUsers = () => {
 };
 
 export default ManageUsers;
-

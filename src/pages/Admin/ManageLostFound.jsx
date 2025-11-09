@@ -110,7 +110,7 @@ const ManageLostFound = () => {
   );
 
   return (
-    <div className="container-custom py-8">
+    <div className="container-custom py-8 pt-20">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">
           Manage Lost & Found
