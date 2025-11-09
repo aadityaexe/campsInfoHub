@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
-import { assignmentsAPI, coursesAPI } from "../../api/api";
+// src/pages/Assignments/TeacherAssignments.jsx
+import { useEffect, useState } from "react";
+import { mockAssignmentsAPI, mockCoursesAPI } from "../../api/assignmentsApi"; // ensure your index re-exports
 import { useNotifications } from "../../hooks/useNotifications";
+
 import Card from "../../components/ui/Card";
 import Loader from "../../components/ui/Loader";
 import Button from "../../components/ui/Button";
 import Table from "../../components/ui/Table";
+
 import {
   DOCUMENT_FILE_TYPES,
   describeAttachmentType,
@@ -13,15 +16,41 @@ import {
   isFileTypeAllowed,
 } from "../../utils/file";
 
+import TeacherAssignmentSubmissions from "./TeacherAssignmentSubmissions";
+
 const MAX_FILE_SIZE_MB = 10;
+
+const StatPill = ({ tone = "default", children }) => {
+  const tones = {
+    default: "bg-gray-100 text-gray-800",
+    green: "bg-green-100 text-green-800",
+    red: "bg-red-100 text-red-800",
+    amber: "bg-amber-100 text-amber-800",
+    blue: "bg-blue-100 text-blue-800",
+  };
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 rounded-full text-xs ${
+        tones[tone] || tones.default
+      }`}
+    >
+      {children}
+    </span>
+  );
+};
 
 const TeacherAssignments = () => {
   const { addNotification } = useNotifications();
+
   const [assignments, setAssignments] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [openAssignment, setOpenAssignment] = useState(null);
+  const [openCourse, setOpenCourse] = useState(null);
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -31,26 +60,46 @@ const TeacherAssignments = () => {
   });
 
   useEffect(() => {
-    fetchAssignments();
-    fetchCourses();
+    loadAll();
   }, []);
 
-  const fetchCourses = async () => {
-    try {
-      const response = await coursesAPI.getAll();
-      setCourses(response.data || []);
-    } catch (err) {
-      console.error("Failed to fetch courses:", err);
-    }
-  };
-
-  const fetchAssignments = async () => {
+  const loadAll = async () => {
     try {
       setLoading(true);
-      const response = await assignmentsAPI.getAll();
-      setAssignments(response.data || []);
+      const [asRes, csRes] = await Promise.all([
+        mockAssignmentsAPI.getAll(),
+        mockCoursesAPI.getAll(),
+      ]);
+      const asg = asRes.data || [];
+      const cs = csRes.data || [];
+      setCourses(cs);
+
+      // enrich each assignment with students + similarity report for "stats line"
+      const enriched = await Promise.all(
+        asg.map(async (a) => {
+          const course = await mockCoursesAPI.getById(a.courseId);
+          const students = course.data.students || [];
+          const report = await mockAssignmentsAPI.getSimilarityReport(
+            a._id || a.id
+          );
+          const submitted = a.submissionCount || 0;
+          const total = students.length;
+          const percent = total ? Math.round((submitted / total) * 100) : 0;
+          return {
+            ...a,
+            _students: students,
+            _similarityReport: report.data,
+            _submittedPercent: percent,
+            _missingCount: Math.max(0, total - submitted),
+            _highSimCount: report.data.flaggedStudentIds.length,
+          };
+        })
+      );
+
+      setAssignments(enriched);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to fetch assignments");
+      console.error(err);
+      setError("Failed to load assignments");
     } finally {
       setLoading(false);
     }
@@ -64,11 +113,11 @@ const TeacherAssignments = () => {
       );
       const payload = {
         ...formData,
+        courseName: selectedCourse?.name,
         attachments: formData.attachments,
       };
-      const response = await assignmentsAPI.create(payload);
+      await mockAssignmentsAPI.create(payload);
 
-      // Add notification for students
       if (selectedCourse) {
         addNotification({
           type: "assignment",
@@ -87,17 +136,17 @@ const TeacherAssignments = () => {
         dueDate: "",
         attachments: [],
       });
-      fetchAssignments();
+
+      await loadAll();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to create assignment");
+      console.error(err);
+      alert("Failed to create assignment");
     }
   };
 
   const handleFileChange = async (event) => {
     const files = Array.from(event.target.files || []);
-    if (files.length === 0) {
-      return;
-    }
+    if (!files.length) return;
 
     for (const file of files) {
       if (!isFileTypeAllowed(file, DOCUMENT_FILE_TYPES)) {
@@ -114,85 +163,63 @@ const TeacherAssignments = () => {
       const processed = await filesToAttachments(files, {
         prefix: "assignmentFile",
       });
-
       setFormData((prev) => ({
         ...prev,
-        attachments: [...(prev.attachments || []), ...processed],
+        attachments: [...prev.attachments, ...processed],
       }));
-      // reset input so same file can be selected again if needed
       event.target.value = "";
-    } catch (error) {
-      console.error("Failed to process files", error);
-      alert("Failed to process selected files. Please try again.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to process selected files.");
     }
   };
 
-  const handleRemoveAttachment = (attachmentId) => {
+  const handleRemoveAttachment = (id) => {
     setFormData((prev) => ({
       ...prev,
-      attachments: prev.attachments.filter(
-        (attachment) => attachment.id !== attachmentId
-      ),
+      attachments: prev.attachments.filter((a) => a.id !== id),
     }));
   };
 
-  const handleViewSubmissions = async (assignmentId) => {
-    try {
-      const response = await assignmentsAPI.getSubmissions(assignmentId);
-      const submissions = response.data || [];
-      alert(`Total submissions: ${submissions.length}`);
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to fetch submissions");
-    }
-  };
-
-  if (loading) {
+  if (loading)
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader size="lg" />
       </div>
     );
-  }
 
-  const headers = [
-    "Title",
-    "Course",
-    "Due Date",
-    "Resources",
-    "Submissions",
-    "Actions",
-  ];
+  const headers = ["Title", "Course", "Due", "Resources", "Summary", "Actions"];
 
-  const renderRow = (assignment) => (
-    <tr key={assignment._id || assignment.id}>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-        {assignment.title}
+  const renderRow = (a) => (
+    <tr
+      key={a._id || a.id}
+      className={a._submittedPercent < 70 ? "bg-amber-50" : ""}
+    >
+      <td className="px-6 py-4 font-medium">{a.title}</td>
+
+      <td className="px-6 py-4">{a.courseName}</td>
+
+      <td className="px-6 py-4">
+        {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A"}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {assignment.courseName || assignment.course}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {assignment.dueDate
-          ? new Date(assignment.dueDate).toLocaleDateString()
-          : "N/A"}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm">
-        {assignment.attachments?.length ? (
+
+      <td className="px-6 py-4">
+        {a.attachments?.length ? (
           <div className="space-y-1">
-            {assignment.attachments.slice(0, 3).map((attachment) => (
+            {a.attachments.slice(0, 3).map((att) => (
               <a
-                key={attachment.id}
-                href={attachment.url}
+                key={att.id}
+                href={att.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-primary-600 hover:text-primary-700 underline"
+                className="underline text-primary-600 block"
               >
-                {attachment.name}
+                {att.name}
               </a>
             ))}
-            {assignment.attachments.length > 3 && (
+            {a.attachments.length > 3 && (
               <p className="text-xs text-gray-500">
-                +{assignment.attachments.length - 3} more file(s)
+                +{a.attachments.length - 3} more
               </p>
             )}
           </div>
@@ -200,14 +227,31 @@ const TeacherAssignments = () => {
           <span className="text-gray-400">No files</span>
         )}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {assignment.submissionCount || 0}
+
+      {/* ONE-LINE SUMMARY + HIGHLIGHTS */}
+      <td className="px-6 py-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatPill tone={a._submittedPercent >= 70 ? "green" : "amber"}>
+            {a.submissionCount}/{a._students.length || 0} submitted (
+            {a._submittedPercent}%)
+          </StatPill>
+          <StatPill tone={a._missingCount ? "red" : "green"}>
+            Missing {a._missingCount}
+          </StatPill>
+          <StatPill tone={a._highSimCount ? "red" : "blue"}>
+            High Similarity ≥ 70%: {a._highSimCount}
+          </StatPill>
+        </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm">
+
+      <td className="px-6 py-4">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => handleViewSubmissions(assignment._id || assignment.id)}
+          onClick={() => {
+            setOpenAssignment(a._id || a.id);
+            setOpenCourse(a.courseId);
+          }}
         >
           View Submissions
         </Button>
@@ -216,11 +260,11 @@ const TeacherAssignments = () => {
   );
 
   return (
-    <div className="container-custom py-8">
+    <div className="container-custom py-8 pt-20">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Assignments</h1>
-          <p className="mt-2 text-gray-600">Manage course assignments</p>
+          <h1 className="text-3xl font-bold">Assignments</h1>
+          <p className="text-gray-600">Manage course assignments</p>
         </div>
         <Button
           variant="primary"
@@ -231,21 +275,17 @@ const TeacherAssignments = () => {
       </div>
 
       {error && (
-        <Card className="mb-6 bg-red-50 border-red-200">
-          <p className="text-red-700">{error}</p>
+        <Card className="mb-6 bg-red-50 border-red-200 text-red-700 p-3">
+          {error}
         </Card>
       )}
 
       {showCreateForm && (
-        <Card className="mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Create Assignment
-          </h2>
+        <Card className="mb-6 p-6">
+          <h2 className="text-xl font-bold mb-4">Create Assignment</h2>
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Title
-              </label>
+              <label className="text-sm font-medium">Title</label>
               <input
                 type="text"
                 required
@@ -253,36 +293,31 @@ const TeacherAssignments = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, title: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border rounded-lg"
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Course
-              </label>
+              <label className="text-sm font-medium">Course</label>
               <select
                 required
                 value={formData.courseId}
                 onChange={(e) =>
                   setFormData({ ...formData, courseId: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border rounded-lg"
               >
-                <option value="">Select a course</option>
-                {courses.map((course) => (
-                  <option
-                    key={course._id || course.id}
-                    value={course._id || course.id}
-                  >
-                    {course.name} ({course.code})
+                <option value="">Select course</option>
+                {courses.map((c) => (
+                  <option key={c._id || c.id} value={c._id || c.id}>
+                    {c.name} ({c.code})
                   </option>
                 ))}
               </select>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
+              <label className="text-sm font-medium">Description</label>
               <textarea
                 required
                 rows={4}
@@ -290,11 +325,12 @@ const TeacherAssignments = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border rounded-lg"
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="text-sm font-medium">
                 Upload Resources (PDF, JPG, PNG)
               </label>
               <input
@@ -302,30 +338,25 @@ const TeacherAssignments = () => {
                 accept=".pdf,image/jpeg,image/png"
                 multiple
                 onChange={handleFileChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border rounded-lg"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Maximum file size {MAX_FILE_SIZE_MB} MB per file.
-              </p>
               {formData.attachments.length > 0 && (
                 <div className="mt-3 space-y-2">
-                  {formData.attachments.map((attachment) => (
+                  {formData.attachments.map((a) => (
                     <div
-                      key={attachment.id}
-                      className="flex items-center justify-between bg-gray-100 border border-gray-200 rounded-lg px-3 py-2"
+                      key={a.id}
+                      className="flex justify-between bg-gray-100 p-2 rounded-lg"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">
-                          {attachment.name}
-                        </p>
+                      <div>
+                        <p className="font-medium">{a.name}</p>
                         <p className="text-xs text-gray-500">
-                      {describeAttachmentType(attachment.type)}
+                          {describeAttachmentType(a.type)}
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleRemoveAttachment(attachment.id)}
-                        className="text-xs text-red-600 hover:text-red-700"
+                        className="text-red-600 text-xs"
+                        onClick={() => handleRemoveAttachment(a.id)}
                       >
                         Remove
                       </button>
@@ -334,10 +365,9 @@ const TeacherAssignments = () => {
                 </div>
               )}
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Due Date
-              </label>
+              <label className="text-sm font-medium">Due Date</label>
               <input
                 type="date"
                 required
@@ -345,9 +375,10 @@ const TeacherAssignments = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, dueDate: e.target.value })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border rounded-lg"
               />
             </div>
+
             <Button type="submit" variant="primary">
               Create
             </Button>
@@ -358,6 +389,14 @@ const TeacherAssignments = () => {
       <Card>
         <Table headers={headers} data={assignments} renderRow={renderRow} />
       </Card>
+
+      {openAssignment && (
+        <TeacherAssignmentSubmissions
+          assignmentId={openAssignment}
+          courseId={openCourse}
+          onClose={() => setOpenAssignment(null)}
+        />
+      )}
     </div>
   );
 };

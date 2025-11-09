@@ -240,7 +240,7 @@ const StudentAssignments = () => {
   return (
     <>
       <LoadingWrapper loading={loading}>
-        <div className="container-custom py-8">
+        <div className="container-custom py-8 pt-20 ">
           <PageHeader
             title="My Assignments"
             description="View and submit your assignments grouped by course"
