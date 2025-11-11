@@ -1,5 +1,4 @@
-import Card from '../ui/Card';
-
+import Card from "../ui/Card";
 /**
  * Reusable error alert component
  * @param {string} message - Error message to display
@@ -27,4 +26,3 @@ const ErrorAlert = ({ message, onDismiss }) => {
 };
 
 export default ErrorAlert;
-

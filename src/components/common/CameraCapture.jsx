@@ -1,7 +1,6 @@
 // src/components/common/CameraCapture.jsx
 import { useEffect, useRef, useState } from "react";
 import Button from "../ui/Button";
-
 const CameraCapture = ({ onCapture, onCancel }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -48,7 +47,6 @@ const CameraCapture = ({ onCapture, onCancel }) => {
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
     onCapture?.(dataUrl);
   };
-
   return (
     <div className="space-y-3">
       {error ? (
@@ -77,5 +75,4 @@ const CameraCapture = ({ onCapture, onCancel }) => {
     </div>
   );
 };
-
 export default CameraCapture;
