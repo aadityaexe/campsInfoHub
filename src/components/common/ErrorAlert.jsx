@@ -6,7 +6,6 @@ import Card from "../ui/Card";
  */
 const ErrorAlert = ({ message, onDismiss }) => {
   if (!message) return null;
-
   return (
     <Card className="mb-6 bg-red-50 border-red-200">
       <div className="flex items-center justify-between">
@@ -24,5 +23,4 @@ const ErrorAlert = ({ message, onDismiss }) => {
     </Card>
   );
 };
-
 export default ErrorAlert;
