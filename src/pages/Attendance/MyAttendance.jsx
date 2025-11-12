@@ -170,7 +170,7 @@ const MyAttendance = () => {
   };
 
   return (
-    <div className="container-custom py-8 space-y-6">
+    <div className="container-custom py-8 pt-20 space-y-6">
       <PageHeader
         title="My Attendance"
         description={`Mark your attendance with live photo & GPS (≤ ${LIMIT_METERS}m)`}

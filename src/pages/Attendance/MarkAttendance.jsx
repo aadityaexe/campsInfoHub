@@ -175,7 +175,7 @@ const MarkAttendance = () => {
   };
 
   return (
-    <div className="container-custom py-8">
+    <div className="container-custom py-8 pt-20">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Mark Attendance</h1>
         <p className="mt-2 text-gray-600">

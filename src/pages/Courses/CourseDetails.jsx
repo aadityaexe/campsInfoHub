@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { coursesAPI } from '../../api/api';
-import Card from '../../components/ui/Card';
-import Loader from '../../components/ui/Loader';
-import Button from '../../components/ui/Button';
-import { useAuth } from '../../hooks/useAuth';
+import { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import { coursesAPI } from "../../api/api";
+import Card from "../../components/ui/Card";
+import Loader from "../../components/ui/Loader";
+import Button from "../../components/ui/Button";
+import { useAuth } from "../../hooks/useAuth";
 
 const CourseDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchCourse();
@@ -23,7 +23,7 @@ const CourseDetails = () => {
       const response = await coursesAPI.getById(id);
       setCourse(response.data);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch course details');
+      setError(err.response?.data?.message || "Failed to fetch course details");
     } finally {
       setLoading(false);
     }
@@ -32,10 +32,10 @@ const CourseDetails = () => {
   const handleEnroll = async () => {
     try {
       await coursesAPI.enroll(id);
-      alert('Successfully enrolled in course');
+      alert("Successfully enrolled in course");
       fetchCourse();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to enroll');
+      alert(err.response?.data?.message || "Failed to enroll");
     }
   };
 
@@ -49,11 +49,13 @@ const CourseDetails = () => {
 
   if (error || !course) {
     return (
-      <div className="container-custom py-8">
+      <div className="container-custom py-8 pt-20">
         <Card className="bg-red-50 border-red-200">
-          <p className="text-red-700">{error || 'Course not found'}</p>
+          <p className="text-red-700">{error || "Course not found"}</p>
           <Link to="/courses">
-            <Button variant="primary" className="mt-4">Back to Courses</Button>
+            <Button variant="primary" className="mt-4">
+              Back to Courses
+            </Button>
           </Link>
         </Card>
       </div>
@@ -64,18 +66,24 @@ const CourseDetails = () => {
     <div className="container-custom py-8">
       <div className="mb-6">
         <Link to="/courses">
-          <Button variant="secondary" size="sm">← Back to Courses</Button>
+          <Button variant="secondary" size="sm">
+            ← Back to Courses
+          </Button>
         </Link>
       </div>
 
       <Card>
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{course.name}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {course.name}
+          </h1>
           <p className="text-lg text-gray-600">{course.code}</p>
         </div>
 
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Description</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Description
+          </h2>
           <p className="text-gray-700">{course.description}</p>
         </div>
 
@@ -100,7 +108,7 @@ const CourseDetails = () => {
           )}
         </div>
 
-        {user?.role === 'student' && (
+        {user?.role === "student" && (
           <Button variant="primary" onClick={handleEnroll}>
             Enroll in Course
           </Button>
@@ -111,4 +119,3 @@ const CourseDetails = () => {
 };
 
 export default CourseDetails;
-
